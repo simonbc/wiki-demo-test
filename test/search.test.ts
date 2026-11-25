@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import search, { searchUsage } from "../src/commands/search";
@@ -58,10 +58,36 @@ test("prints matching pages in title order, then their matching lines with the w
   ]);
 });
 
-test("without color, prints the lines unstyled", () => {
+test("with NO_COLOR set on a terminal, prints the lines unstyled", () => {
+  process.env.NO_COLOR = "1";
+  process.stdout.isTTY = true;
   writePage("Home", "A cat sat.\n");
   expect(search(["cat"])).toBe(0);
   expect(printed()).toEqual(["Home", "  A cat sat."]);
+});
+
+test("when stdout isn't a terminal, prints the lines unstyled", () => {
+  delete process.env.NO_COLOR;
+  process.stdout.isTTY = false;
+  writePage("Home", "A cat sat.\n");
+  expect(search(["cat"])).toBe(0);
+  expect(printed()).toEqual(["Home", "  A cat sat."]);
+});
+
+test("keeps spaces around a word as part of it", () => {
+  writePage("Home", "a catapult\nthe cat sat\n");
+  expect(search([" cat "])).toBe(0);
+  expect(printed()).toEqual(["Home", "  the cat sat"]);
+});
+
+test("reports a page that can't be read and still searches the others", () => {
+  writePage("Apple", "a cat\n");
+  writePage("Zebra", "a cat\n");
+  // `listPages()` lists this file, but its blank title makes `readPage()` throw.
+  writeFileSync(join(dir, "pages", " .md"), "a cat\n");
+  expect(search(["cat"])).toBe(1);
+  expect(printed()).toEqual(["Apple", "  a cat", "Zebra", "  a cat"]);
+  expect(error).toHaveBeenCalledTimes(1);
 });
 
 test("ignores case and highlights the text in its own case", () => {

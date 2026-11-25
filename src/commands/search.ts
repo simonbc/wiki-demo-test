@@ -16,19 +16,32 @@ function wordPattern(word: string): RegExp {
  * highlighted in the page's own case. Matching ignores case and treats the
  * word as plain text. Pages are in title order, lines in file order. The
  * arguments are joined with spaces, so `wiki search foo bar` searches for
- * "foo bar". Returns the exit code: 0 even when no page matches.
+ * "foo bar". A page that can't be read is reported on stderr and skipped.
+ * Returns the exit code: 0 even when no page matches, 1 when a page couldn't
+ * be read.
  */
 export default function search(args: string[]): number {
-  const word = args.join(" ").trim();
-  if (word === "") {
+  // Trim only to spot a blank word: spaces in a real word are part of it.
+  const word = args.join(" ");
+  if (word.trim() === "") {
     console.error(searchUsage);
     return 1;
   }
 
   const pattern = wordPattern(word);
   let found = false;
+  let failed = false;
   for (const title of listPages()) {
-    const lines = readPage(title)
+    let text: string;
+    try {
+      text = readPage(title);
+    } catch (err) {
+      // One unreadable file shouldn't stop the search of the other pages.
+      console.error(`wiki search: can't read "${title}": ${err instanceof Error ? err.message : String(err)}`);
+      failed = true;
+      continue;
+    }
+    const lines = text
       .split(/\r?\n/)
       .filter((line) => {
         pattern.lastIndex = 0;
@@ -41,5 +54,5 @@ export default function search(args: string[]): number {
   }
 
   if (!found) console.log(`No pages match "${word}".`);
-  return 0;
+  return failed ? 1 : 0;
 }
