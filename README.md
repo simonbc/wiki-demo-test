@@ -34,9 +34,18 @@ These work today:
   wiki list
   ```
 
-Titles with spaces work without quotes. Planned but not built yet:
-`wiki search <word>`, `wiki links <title>` and `wiki delete <title>`. See
-[spec.md](spec.md) for what they will do.
+- `wiki search <word>` lists the pages that contain the word, in title order,
+  each followed by its matching lines with the word highlighted. Matching
+  ignores case and treats the word as plain text; several words are searched
+  as one phrase.
+
+  ```sh
+  wiki search meeting
+  ```
+
+Titles and search words with spaces work without quotes. Planned but not built
+yet: `wiki links <title>` and `wiki delete <title>`. See [spec.md](spec.md) for
+what they will do.
 
 ## Layout
 
