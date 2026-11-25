@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import links, { linksUsage } from "../src/commands/links";
-import { writePage } from "../src/pages";
+import { pagesDir, writePage } from "../src/pages";
 
 let dir: string;
 let oldCwd: string;
@@ -76,4 +76,34 @@ test("a missing title prints the usage and fails", () => {
   expect(error).toHaveBeenCalledWith(linksUsage);
   expect(links(["  "])).toBe(1);
   expect(log).not.toHaveBeenCalled();
+});
+
+test("a folder named like a page is not a page", () => {
+  writePage("Home", "[[Folder]]\n");
+  mkdirSync(join(pagesDir(), "Folder.md"));
+  expect(links(["Folder"])).toBe(1);
+  expect(error.mock.calls[0]![0]).toBe('wiki links: no page named "Folder"');
+  expect(log).not.toHaveBeenCalled();
+});
+
+test("an unknown title with a newline still prints one line", () => {
+  expect(links(["Two\nlines"])).toBe(1);
+  expect(error).toHaveBeenCalledTimes(1);
+  expect(error.mock.calls[0]![0]).toBe('wiki links: no page named "Two\\x0alines"');
+});
+
+test("control characters in a linking page's title are escaped", () => {
+  writePage("Target", "");
+  writeFileSync(join(pagesDir(), "Red\x1b[31m.md"), "[[Target]]\n");
+  expect(links(["Target"])).toBe(0);
+  expect(printed()).toEqual(["Red\\x1b[31m"]);
+});
+
+test("a page file that can't be read as a page is skipped", () => {
+  writePage("Target", "");
+  writePage("Good", "[[Target]]\n");
+  writeFileSync(join(pagesDir(), "Bad\\Name.md"), "[[Target]]\n");
+  mkdirSync(join(pagesDir(), "Unreadable.md"));
+  expect(links(["Target"])).toBe(0);
+  expect(printed()).toEqual(["Bad\\Name", "Good"]);
 });
